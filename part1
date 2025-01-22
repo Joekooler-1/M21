@@ -1,0 +1,119 @@
+Sub LoadSheetsForAllClients()
+    ' Declare variables
+    Dim targetWorkbook As Workbook ' Workbook where sheets are imported
+    Dim wbSource As Workbook ' Source workbook to import from
+    Dim wsSource As Worksheet ' Source worksheet being imported
+    Dim filePath As String ' Full path to the source file
+    Dim basePath As String ' Base folder path
+    Dim yearFolder As String, yearMonthFolder As String, yearMonthDayFolder As String ' Subfolders
+    Dim dateCell As Range ' Cell containing the date
+    Dim dateValue As Date ' Extracted date value
+    Dim yearStr As String, monthStr As String, dayStr As String ' Year, month, day as strings
+    Dim clientSheet As Worksheet ' Worksheet containing client names
+    Dim clientRow As Long, lastRow As Long ' Looping through clients
+    Dim clientName As String ' Current client name
+    Dim newSheetName As String ' Name for the imported sheet
+    Dim log As String ' Log of operations
+    Dim successCount As Integer, failureCount As Integer ' Success and failure counters
+
+    ' Initialize logging and counters
+    log = "Batch Import Log:" & vbNewLine & String(40, "-") & vbNewLine
+    successCount = 0
+    failureCount = 0
+
+    ' Set the workbook and date cell
+    Set targetWorkbook = ThisWorkbook
+    Set dateCell = targetWorkbook.Sheets("Sheet1").Range("A1")
+
+    ' Validate the date in the specified cell
+    If IsDate(dateCell.Value) Then
+        dateValue = dateCell.Value
+        yearStr = Format(dateValue, "yyyy")
+        monthStr = Format(dateValue, "mm")
+        dayStr = Format(dateValue, "dd")
+    Else
+        MsgBox "Invalid date in cell A1. Exiting.", vbExclamation
+        Exit Sub
+    End If
+
+    ' Set client sheet and determine the last row
+    Set clientSheet = targetWorkbook.Sheets("CLIENTS")
+    lastRow = clientSheet.Cells(clientSheet.Rows.Count, "A").End(xlUp).Row
+
+    ' Construct base folder paths
+    basePath = "EXAMPLEPUTFILEPATH"
+    yearFolder = basePath & yearStr & "\"
+    yearMonthFolder = yearFolder & yearStr & "-" & monthStr & "\"
+    yearMonthDayFolder = yearMonthFolder & yearStr & "-" & monthStr & "-" & dayStr & "\"
+
+    ' Loop through each client in the CLIENTS sheet
+    For clientRow = 2 To lastRow
+        clientName = Trim(clientSheet.Cells(clientRow, "A").Value)
+        
+        ' Skip if client name is blank
+        If clientName = "" Then
+            log = log & "Row " & clientRow & ": Empty client name. Skipped." & vbNewLine
+            failureCount = failureCount + 1
+            GoTo NextClient
+        End If
+
+        ' Build file path for the client
+        filePath = yearMonthDayFolder & "VAL-" & yearStr & monthStr & dayStr & "-MONTHLY-" & clientName & "_Tor_IRS.xlsx"
+
+        ' Check if the file exists
+        If Dir(filePath) <> "" Then
+            ' Open source workbook and select the first sheet
+            Set wbSource = Workbooks.Open(filePath)
+            Set wsSource = wbSource.Sheets(1)
+
+            ' Extract sheet name from cell C12, ignoring first 9 characters
+            newSheetName = Trim(Mid(wsSource.Range("C12").Value, 10))
+            If newSheetName = "" Then newSheetName = "Sheet" & targetWorkbook.Sheets.Count + 1
+
+            ' Delete existing sheet with the same name
+            On Error Resume Next
+            If Not IsSheetNameAvailable(newSheetName, targetWorkbook) Then
+                targetWorkbook.Sheets(newSheetName).Delete
+            End If
+            On Error GoTo 0
+
+            ' Copy sheet to the target workbook
+            wsSource.Copy After:=targetWorkbook.Sheets(targetWorkbook.Sheets.Count)
+            targetWorkbook.Sheets(targetWorkbook.Sheets.Count).Name = newSheetName
+
+            ' Close source workbook
+            wbSource.Close SaveChanges:=False
+
+            ' Log success
+            log = log & "Client: " & clientName & " - Imported successfully." & vbNewLine
+            successCount = successCount + 1
+        Else
+            ' Log failure if file not found
+            log = log & "Client: " & clientName & " - File not found: " & filePath & vbNewLine
+            failureCount = failureCount + 1
+        End If
+
+NextClient:
+    Next clientRow
+
+    ' Finalize log with summary
+    log = log & vbNewLine & "Summary:" & vbNewLine
+    log = log & "Total Clients: " & (lastRow - 1) & vbNewLine
+    log = log & "Successful Imports: " & successCount & vbNewLine
+    log = log & "Failed Imports: " & failureCount & vbNewLine
+
+    ' Display log
+    MsgBox log, vbInformation, "Batch Import Summary"
+End Sub
+
+' Function to check if a sheet name is available
+Function IsSheetNameAvailable(sheetName As String, wb As Workbook) As Boolean
+    Dim ws As Worksheet
+    For Each ws In wb.Sheets
+        If ws.Name = sheetName Then
+            IsSheetNameAvailable = False
+            Exit Function
+        End If
+    Next ws
+    IsSheetNameAvailable = True
+End Function
