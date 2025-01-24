@@ -11,6 +11,12 @@ Sub UpdateImportedPages()
     Dim importedSheetName As String ' Name of the current imported sheet being processed
     Dim clientRow As Long ' Row counter for the CLIENTS sheet
     Dim matchFound As Boolean ' Boolean to track if a match was found
+    Dim log As String ' Log to summarize changes
+    Dim changesCount As Integer ' Count of rows updated
+
+    ' Initialize the log and counters
+    log = "Change Summary:" & vbNewLine & String(40, "-") & vbNewLine
+    changesCount = 0
 
     ' Define the input and client sheets
     Set inputSheet = ThisWorkbook.Sheets("Input Rates")
@@ -58,11 +64,18 @@ Sub UpdateImportedPages()
                             Case "Receive (Float) Rate"
                                 ' Update column T in the imported sheet with column G from Input Rates
                                 importedSheet.Cells(importedRow, "T").Value = inputSheet.Cells(inputRow, "G").Value
+                                log = log & "Sheet: " & importedSheetName & " | Row: " & importedRow & _
+                                      " | Updated T with " & inputSheet.Cells(inputRow, "G").Value & vbNewLine
+                                changesCount = changesCount + 1
 
                             Case "Previous Trade ID, Pay (Fixed) and Receive (Float) Rates"
                                 ' Update columns T and N in the imported sheet with columns G and H from Input Rates
                                 importedSheet.Cells(importedRow, "T").Value = inputSheet.Cells(inputRow, "G").Value
                                 importedSheet.Cells(importedRow, "N").Value = inputSheet.Cells(inputRow, "H").Value
+                                log = log & "Sheet: " & importedSheetName & " | Row: " & importedRow & _
+                                      " | Updated T with " & inputSheet.Cells(inputRow, "G").Value & _
+                                      " | Updated N with " & inputSheet.Cells(inputRow, "H").Value & vbNewLine
+                                changesCount = changesCount + 1
 
                             Case Else
                                 ' If no valid field is defined, do nothing
@@ -73,14 +86,17 @@ Sub UpdateImportedPages()
                 Next importedRow
             Next inputRow
         Else
-            ' Log or notify if a sheet listed in CLIENTS does not exist
-            MsgBox "Sheet '" & importedSheetName & "' listed in CLIENTS does not exist in the workbook.", vbExclamation
+            ' Log if a sheet listed in CLIENTS does not exist
+            log = log & "Sheet: " & importedSheetName & " does not exist in the workbook." & vbNewLine
         End If
 
         ' Clear the reference to the sheet to ensure it resets for the next iteration
         Set importedSheet = Nothing
     Next clientRow
 
-    ' Notify the user that the process is complete
-    MsgBox "Imported sheets updated successfully based on Input Rates.", vbInformation
+    ' Add summary to the log
+    log = log & vbNewLine & "Total Changes Made: " & changesCount & vbNewLine
+
+    ' Display the log in a pop-up message
+    MsgBox log, vbInformation, "Change Summary"
 End Sub
