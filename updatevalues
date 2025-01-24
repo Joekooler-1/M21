@@ -42,25 +42,25 @@ Sub UpdateImportedPages()
 
             ' Loop through each row in the Input Rates sheet
             For inputRow = 2 To inputLastRow ' Start at row 2 to skip the header
-                ' Skip rows where column B is empty
-                If Trim(inputSheet.Cells(inputRow, "B").Value) = "" Then
-                    log = log & "Skipped row " & inputRow & " in Input Rates (B is empty)." & vbNewLine
+                matchValue = Trim(inputSheet.Cells(inputRow, "B").Value) ' Primary key: column B
+                secondaryMatchValue = Trim(inputSheet.Cells(inputRow, "E").Value) ' Secondary key: column E
+
+                ' Skip rows where both column B and E are empty
+                If matchValue = "" And secondaryMatchValue = "" Then
+                    log = log & "Skipped row " & inputRow & " in Input Rates (B and E are empty)." & vbNewLine
                     GoTo NextInputRow
                 End If
 
-                matchValue = Trim(inputSheet.Cells(inputRow, "B").Value) ' Primary key: column B
-                secondaryMatchValue = Trim(inputSheet.Cells(inputRow, "E").Value) ' Secondary key: column E
                 fieldToUpdate = Trim(inputSheet.Cells(inputRow, "F").Value) ' Get the "Field to Update" value
-
                 matchFound = False ' Reset matchFound flag for this row
 
                 ' Loop through each row in the imported sheet
                 For importedRow = 2 To importedLastRow ' Start at row 2 to skip the header
                     ' Check primary key first (column B of imported sheet)
-                    If Trim(importedSheet.Cells(importedRow, "B").Value) = matchValue Then
+                    If Trim(importedSheet.Cells(importedRow, "B").Value) = matchValue And matchValue <> "" Then
                         matchFound = True
                     ' If primary key doesn't match, try secondary key
-                    ElseIf Trim(importedSheet.Cells(importedRow, "B").Value) = secondaryMatchValue Then
+                    ElseIf Trim(importedSheet.Cells(importedRow, "B").Value) = secondaryMatchValue And secondaryMatchValue <> "" Then
                         matchFound = True
                     End If
 
