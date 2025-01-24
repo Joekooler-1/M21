@@ -63,7 +63,7 @@ Sub UpdateImportedPages()
             MsgBox "Sheet '" & importedSheetName & "' listed in CLIENTS does not exist in the workbook.", vbExclamation
         End If
 
-        ' Clear the reference to the sheet
+        ' Clear the reference to the sheet to ensure it resets for the next iteration
         Set importedSheet = Nothing
     Next clientRow
 
