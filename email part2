@@ -1,0 +1,122 @@
+Sub SaveAndEmailSheets()
+    ' Declare variables
+    Dim clientSheet As Worksheet ' Worksheet containing client and email data
+    Dim disclaimerSheet As Worksheet ' Worksheet containing the HTML disclaimer text
+    Dim targetSheet As Worksheet ' Imported worksheet to save and email
+    Dim clientRow As Long, clientLastRow As Long ' Row counters for CLIENTS sheet
+    Dim clientName As String ' Name of the imported sheet (from column A)
+    Dim emailList As String ' Email addresses for the distribution list (from column B)
+    Dim htmlBody As String ' HTML body content from the DISCLAIMER page
+    Dim htmlRow As Long ' Row counter for HTML text
+    Dim basePath As String ' Base folder path for file saving
+    Dim yearFolder As String, yearMonthFolder As String, yearMonthDayFolder As String ' Folder structure
+    Dim dateCell As Range ' Cell containing the date
+    Dim dateValue As Date ' Date value for folder structure
+    Dim yearStr As String, monthStr As String, dayStr As String ' Year, month, and day strings
+    Dim formattedDate As String ' Formatted date as YYYYMMDD
+    Dim tempFileName As String ' Name of the file
+    Dim fullFilePath As String ' Full file save path
+    Dim c12Value As String ' Value of C12 from the target worksheet
+    Dim emailSubject As String ' Subject of the email
+    Dim senderEmail As String ' Email address to send from
+    Dim ccEmail As String ' Static CC email address
+    Dim outlookApp As Object ' Outlook application object
+    Dim outlookMail As Object ' Outlook mail item object
+
+    ' Define the CLIENTS sheet and DISCLAIMER page
+    Set clientSheet = ThisWorkbook.Sheets("CLIENTS")
+    Set disclaimerSheet = ThisWorkbook.Sheets("DISCLAIMER")
+    Set dateCell = ThisWorkbook.Sheets("Sheet1").Range("B1") ' Date cell reference
+
+    ' Specify the sender's email address
+    senderEmail = "youremail@example.com" ' Replace with the actual email address
+
+    ' Specify the static CC email address
+    ccEmail = "ccemail@example.com" ' Replace with the actual CC email address
+
+    ' Concatenate HTML body content from cells A1 to A68
+    htmlBody = ""
+    For htmlRow = 1 To 68
+        htmlBody = htmlBody & disclaimerSheet.Cells(htmlRow, "A").Value
+    Next htmlRow
+
+    ' Validate the date in the specified cell
+    If IsDate(dateCell.Value) Then
+        dateValue = dateCell.Value
+        yearStr = Format(dateValue, "yyyy")
+        monthStr = Format(dateValue, "mm")
+        dayStr = Format(dateValue, "dd")
+        formattedDate = yearStr & monthStr & dayStr ' Format date as YYYYMMDD
+    Else
+        MsgBox "Invalid date in cell B1. Exiting.", vbExclamation
+        Exit Sub
+    End If
+
+    ' Construct base folder paths
+    basePath = "EXAMPLEPUTFILEPATH" ' Replace with your actual base file path
+    yearFolder = basePath & yearStr & "\"
+    yearMonthFolder = yearFolder & yearStr & "-" & monthStr & "\"
+    yearMonthDayFolder = yearMonthFolder & yearStr & "-" & monthStr & "-" & dayStr & "\"
+
+    ' Find the last row in the CLIENTS sheet (column A contains the client names)
+    clientLastRow = clientSheet.Cells(clientSheet.Rows.Count, "A").End(xlUp).Row
+
+    ' Loop through each client in the CLIENTS sheet
+    For clientRow = 2 To clientLastRow ' Start at row 2 to skip the header
+        clientName = Trim(clientSheet.Cells(clientRow, "A").Value) ' Get the client name
+        emailList = Trim(clientSheet.Cells(clientRow, "B").Value) ' Get the distribution list
+
+        ' Check if the client name and email list are not empty
+        If clientName <> "" And emailList <> "" Then
+            ' Check if the corresponding sheet exists in the workbook
+            On Error Resume Next
+            Set targetSheet = ThisWorkbook.Sheets(clientName)
+            On Error GoTo 0
+
+            If Not targetSheet Is Nothing Then
+                ' Get the value of C12 from the target worksheet
+                c12Value = Trim(targetSheet.Range("C12").Value)
+
+                ' Generate the file name and full file path
+                tempFileName = "VAL-" & formattedDate & "-" & c12Value & ".xlsx"
+                fullFilePath = yearMonthDayFolder & tempFileName
+
+                ' Generate the email subject
+                emailSubject = "XXX Valuation: " & formattedDate & " " & c12Value
+
+                ' Save the worksheet as a new workbook
+                targetSheet.Copy
+                With ActiveWorkbook
+                    .SaveAs Filename:=fullFilePath, FileFormat:=51 ' Save as .xlsx
+                    .Close SaveChanges:=False
+                End With
+
+                ' Set up Outlook application and email
+                Set outlookApp = CreateObject("Outlook.Application")
+                Set outlookMail = outlookApp.CreateItem(0)
+
+                With outlookMail
+                    .To = emailList ' Set the distribution list
+                    .CC = ccEmail ' Add the static CC email address
+                    .Subject = emailSubject ' Set the email subject
+                    .HTMLBody = htmlBody ' Set the email body using the HTML content
+                    .Attachments.Add fullFilePath ' Attach the saved file
+                    .SentOnBehalfOfName = senderEmail ' Specify the sender's email address
+                    .Display ' Show the email for review (use .Send to send directly)
+                End With
+
+                ' Clear the reference to the target sheet
+                Set targetSheet = Nothing
+            Else
+                ' Log or notify if the worksheet does not exist
+                MsgBox "Worksheet '" & clientName & "' does not exist in the workbook.", vbExclamation
+            End If
+        Else
+            ' Log or notify if client name or email list is missing
+            MsgBox "Missing client name or email list in row " & clientRow & " of CLIENTS sheet.", vbExclamation
+        End If
+    Next clientRow
+
+    ' Notify user that the process is complete
+    MsgBox "All emails have been prepared successfully.", vbInformation, "Process Complete"
+End Sub
