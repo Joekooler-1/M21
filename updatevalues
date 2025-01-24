@@ -1,0 +1,68 @@
+Sub UpdateImportedPages()
+    ' Declare variables
+    Dim inputSheet As Worksheet ' Worksheet containing input data (Input Rates page)
+    Dim clientSheet As Worksheet ' Worksheet containing imported sheet names (CLIENTS sheet)
+    Dim importedSheet As Worksheet ' Current imported sheet being updated
+    Dim inputLastRow As Long, importedLastRow As Long, clientLastRow As Long ' Last rows
+    Dim inputRow As Long, importedRow As Long ' Row counters
+    Dim matchValue As String ' Value from Input Rates column E to match with column B in imported sheets
+    Dim updateColumnsInput As Variant ' Columns in Input Rates to pull data from
+    Dim updateColumnsImported As Variant ' Columns in imported sheets to update
+    Dim importedSheetName As String ' Name of the current imported sheet being processed
+    Dim clientRow As Long ' Row counter for the CLIENTS sheet
+
+    ' Define the input and client sheets
+    Set inputSheet = ThisWorkbook.Sheets("Input Rates")
+    Set clientSheet = ThisWorkbook.Sheets("CLIENTS")
+
+    ' Define the columns to match and update (customize these as needed)
+    updateColumnsInput = Array("F", "G", "H") ' Columns on Input Rates sheet to pull data from
+    updateColumnsImported = Array("D", "E", "F") ' Columns on imported sheets to update
+
+    ' Find the last row in Input Rates sheet
+    inputLastRow = inputSheet.Cells(inputSheet.Rows.Count, "E").End(xlUp).Row
+    ' Find the last row in CLIENTS sheet (column A contains the names of imported sheets)
+    clientLastRow = clientSheet.Cells(clientSheet.Rows.Count, "A").End(xlUp).Row
+
+    ' Loop through each imported sheet listed in the CLIENTS sheet
+    For clientRow = 2 To clientLastRow ' Start at row 2 to skip the header
+        importedSheetName = Trim(clientSheet.Cells(clientRow, "A").Value) ' Get the imported sheet name
+
+        ' Check if the sheet exists in the workbook
+        On Error Resume Next
+        Set importedSheet = ThisWorkbook.Sheets(importedSheetName)
+        On Error GoTo 0
+
+        If Not importedSheet Is Nothing Then
+            ' Find the last row in the imported sheet
+            importedLastRow = importedSheet.Cells(importedSheet.Rows.Count, "B").End(xlUp).Row
+
+            ' Loop through each row in the Input Rates sheet
+            For inputRow = 2 To inputLastRow ' Start at row 2 to skip the header
+                matchValue = Trim(inputSheet.Cells(inputRow, "E").Value) ' Get the value to match
+
+                ' Loop through each row in the imported sheet
+                For importedRow = 2 To importedLastRow ' Start at row 2 to skip the header
+                    ' Check if the value in column B of the imported sheet matches the value in column E of Input Rates
+                    If Trim(importedSheet.Cells(importedRow, "B").Value) = matchValue Then
+                        ' Update the specified columns
+                        Dim i As Integer
+                        For i = LBound(updateColumnsInput) To UBound(updateColumnsInput)
+                            importedSheet.Cells(importedRow, updateColumnsImported(i)).Value = _
+                                inputSheet.Cells(inputRow, updateColumnsInput(i)).Value
+                        Next i
+                    End If
+                Next importedRow
+            Next inputRow
+        Else
+            ' Log or notify if a sheet listed in CLIENTS does not exist
+            MsgBox "Sheet '" & importedSheetName & "' listed in CLIENTS does not exist in the workbook.", vbExclamation
+        End If
+
+        ' Clear the reference to the sheet
+        Set importedSheet = Nothing
+    Next clientRow
+
+    ' Notify the user that the process is complete
+    MsgBox "Imported sheets updated successfully based on Input Rates.", vbInformation
+End Sub
