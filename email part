@@ -1,0 +1,104 @@
+Sub SaveAndEmailSheets()
+    ' Declare variables
+    Dim clientSheet As Worksheet ' Worksheet containing client and email data
+    Dim targetSheet As Worksheet ' Imported worksheet to save and email
+    Dim clientRow As Long, clientLastRow As Long ' Row counters for CLIENTS sheet
+    Dim clientName As String ' Name of the imported sheet (from column A)
+    Dim emailList As String ' Email addresses for the distribution list (from column B)
+    Dim basePath As String ' Base folder path for file saving
+    Dim yearFolder As String, yearMonthFolder As String, yearMonthDayFolder As String ' Folder structure
+    Dim dateCell As Range ' Cell containing the date
+    Dim dateValue As Date ' Date value for folder structure
+    Dim yearStr As String, monthStr As String, dayStr As String ' Year, month, and day strings
+    Dim formattedDate As String ' Formatted date as YYYYMMDD
+    Dim tempFileName As String ' Name of the file
+    Dim fullFilePath As String ' Full file save path
+    Dim c12Value As String ' Value of C12 from the target worksheet
+    Dim emailSubject As String ' Subject of the email
+    Dim outlookApp As Object ' Outlook application object
+    Dim outlookMail As Object ' Outlook mail item object
+
+    ' Define the CLIENTS sheet and the date cell
+    Set clientSheet = ThisWorkbook.Sheets("CLIENTS")
+    Set dateCell = ThisWorkbook.Sheets("Sheet1").Range("B1") ' Date cell reference
+
+    ' Validate the date in the specified cell
+    If IsDate(dateCell.Value) Then
+        dateValue = dateCell.Value
+        yearStr = Format(dateValue, "yyyy")
+        monthStr = Format(dateValue, "mm")
+        dayStr = Format(dateValue, "dd")
+        formattedDate = yearStr & monthStr & dayStr ' Format date as YYYYMMDD
+    Else
+        MsgBox "Invalid date in cell B1. Exiting.", vbExclamation
+        Exit Sub
+    End If
+
+    ' Construct base folder paths
+    basePath = "EXAMPLEPUTFILEPATH" ' Replace with your actual base file path
+    yearFolder = basePath & yearStr & "\"
+    yearMonthFolder = yearFolder & yearStr & "-" & monthStr & "\"
+    yearMonthDayFolder = yearMonthFolder & yearStr & "-" & monthStr & "-" & dayStr & "\"
+
+    ' Find the last row in the CLIENTS sheet (column A contains the client names)
+    clientLastRow = clientSheet.Cells(clientSheet.Rows.Count, "A").End(xlUp).Row
+
+    ' Loop through each client in the CLIENTS sheet
+    For clientRow = 2 To clientLastRow ' Start at row 2 to skip the header
+        clientName = Trim(clientSheet.Cells(clientRow, "A").Value) ' Get the client name
+        emailList = Trim(clientSheet.Cells(clientRow, "B").Value) ' Get the distribution list
+
+        ' Check if the client name and email list are not empty
+        If clientName <> "" And emailList <> "" Then
+            ' Check if the corresponding sheet exists in the workbook
+            On Error Resume Next
+            Set targetSheet = ThisWorkbook.Sheets(clientName)
+            On Error GoTo 0
+
+            If Not targetSheet Is Nothing Then
+                ' Get the value of C12 from the target worksheet
+                c12Value = Trim(targetSheet.Range("C12").Value)
+
+                ' Generate the file name and full file path
+                tempFileName = "VAL-" & formattedDate & "-" & c12Value & ".xlsx"
+                fullFilePath = yearMonthDayFolder & tempFileName
+
+                ' Generate the email subject
+                emailSubject = "XXX Valuation: " & formattedDate & " " & c12Value
+
+                ' Save the worksheet as a new workbook
+                targetSheet.Copy
+                With ActiveWorkbook
+                    .SaveAs Filename:=fullFilePath, FileFormat:=51 ' Save as .xlsx
+                    .Close SaveChanges:=False
+                End With
+
+                ' Set up Outlook application and email
+                Set outlookApp = CreateObject("Outlook.Application")
+                Set outlookMail = outlookApp.CreateItem(0)
+
+                With outlookMail
+                    .To = emailList ' Set the distribution list
+                    .Subject = emailSubject ' Set the email subject
+                    .Body = "Dear Team," & vbNewLine & vbNewLine & _
+                            "Please find attached the report for " & clientName & "." & vbNewLine & vbNewLine & _
+                            "Best regards," & vbNewLine & "Your Automation Script"
+                    .Attachments.Add fullFilePath ' Attach the saved file
+                    .Display ' Show the email for review (use .Send to send directly)
+                End With
+
+                ' Clear the reference to the target sheet
+                Set targetSheet = Nothing
+            Else
+                ' Log or notify if the worksheet does not exist
+                MsgBox "Worksheet '" & clientName & "' does not exist in the workbook.", vbExclamation
+            End If
+        Else
+            ' Log or notify if client name or email list is missing
+            MsgBox "Missing client name or email list in row " & clientRow & " of CLIENTS sheet.", vbExclamation
+        End If
+    Next clientRow
+
+    ' Notify user that the process is complete
+    MsgBox "All emails have been prepared successfully.", vbInformation, "Process Complete"
+End Sub
