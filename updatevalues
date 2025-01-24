@@ -6,18 +6,13 @@ Sub UpdateImportedPages()
     Dim inputLastRow As Long, importedLastRow As Long, clientLastRow As Long ' Last rows
     Dim inputRow As Long, importedRow As Long ' Row counters
     Dim matchValue As String ' Value from Input Rates column E to match with column B in imported sheets
-    Dim updateColumnsInput As Variant ' Columns in Input Rates to pull data from
-    Dim updateColumnsImported As Variant ' Columns in imported sheets to update
+    Dim fieldToUpdate As String ' Value from "Field to Update" column
     Dim importedSheetName As String ' Name of the current imported sheet being processed
     Dim clientRow As Long ' Row counter for the CLIENTS sheet
 
     ' Define the input and client sheets
     Set inputSheet = ThisWorkbook.Sheets("Input Rates")
     Set clientSheet = ThisWorkbook.Sheets("CLIENTS")
-
-    ' Define the columns to match and update (customize these as needed)
-    updateColumnsInput = Array("F", "G", "H") ' Columns on Input Rates sheet to pull data from
-    updateColumnsImported = Array("D", "E", "F") ' Columns on imported sheets to update
 
     ' Find the last row in Input Rates sheet
     inputLastRow = inputSheet.Cells(inputSheet.Rows.Count, "E").End(xlUp).Row
@@ -40,17 +35,26 @@ Sub UpdateImportedPages()
             ' Loop through each row in the Input Rates sheet
             For inputRow = 2 To inputLastRow ' Start at row 2 to skip the header
                 matchValue = Trim(inputSheet.Cells(inputRow, "E").Value) ' Get the value to match
+                fieldToUpdate = Trim(inputSheet.Cells(inputRow, "F").Value) ' Get the "Field to Update" value
 
                 ' Loop through each row in the imported sheet
                 For importedRow = 2 To importedLastRow ' Start at row 2 to skip the header
                     ' Check if the value in column B of the imported sheet matches the value in column E of Input Rates
                     If Trim(importedSheet.Cells(importedRow, "B").Value) = matchValue Then
-                        ' Update the specified columns
-                        Dim i As Integer
-                        For i = LBound(updateColumnsInput) To UBound(updateColumnsInput)
-                            importedSheet.Cells(importedRow, updateColumnsImported(i)).Value = _
-                                inputSheet.Cells(inputRow, updateColumnsInput(i)).Value
-                        Next i
+                        ' Update based on the "Field to Update" value
+                        Select Case fieldToUpdate
+                            Case "Receive (Float) Rate"
+                                ' Update column T in the imported sheet with column G from Input Rates
+                                importedSheet.Cells(importedRow, "T").Value = inputSheet.Cells(inputRow, "G").Value
+
+                            Case "Previous Trade ID, Pay (Fixed) and Receive (Float) Rates"
+                                ' Update columns T and N in the imported sheet with columns G and H from Input Rates
+                                importedSheet.Cells(importedRow, "T").Value = inputSheet.Cells(inputRow, "G").Value
+                                importedSheet.Cells(importedRow, "N").Value = inputSheet.Cells(inputRow, "H").Value
+
+                            Case Else
+                                ' If no valid field is defined, do nothing
+                        End Select
                     End If
                 Next importedRow
             Next inputRow
