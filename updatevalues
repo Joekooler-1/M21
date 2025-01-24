@@ -42,6 +42,12 @@ Sub UpdateImportedPages()
 
             ' Loop through each row in the Input Rates sheet
             For inputRow = 2 To inputLastRow ' Start at row 2 to skip the header
+                ' Skip rows where column B is empty
+                If Trim(inputSheet.Cells(inputRow, "B").Value) = "" Then
+                    log = log & "Skipped row " & inputRow & " in Input Rates (B is empty)." & vbNewLine
+                    GoTo NextInputRow
+                End If
+
                 matchValue = Trim(inputSheet.Cells(inputRow, "B").Value) ' Primary key: column B
                 secondaryMatchValue = Trim(inputSheet.Cells(inputRow, "E").Value) ' Secondary key: column E
                 fieldToUpdate = Trim(inputSheet.Cells(inputRow, "F").Value) ' Get the "Field to Update" value
@@ -84,6 +90,8 @@ Sub UpdateImportedPages()
                         Exit For ' Exit the imported sheet loop since the match has been processed
                     End If
                 Next importedRow
+
+NextInputRow:
             Next inputRow
         Else
             ' Log if a sheet listed in CLIENTS does not exist
