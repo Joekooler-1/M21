@@ -1,61 +1,63 @@
 Sub UpdateImportedPages()
     ' Declare variables
-    Dim inputSheet As Worksheet ' Worksheet containing input data (Input Rates page)
-    Dim clientSheet As Worksheet ' Worksheet containing imported sheet names (CLIENTS sheet)
-    Dim importedSheet As Worksheet ' Current imported sheet being updated
-    Dim inputLastRow As Long, importedLastRow As Long, clientLastRow As Long ' Last rows
-    Dim inputRow As Long, importedRow As Long ' Row counters
-    Dim matchValue As String ' Value from Input Rates to match with imported sheets
-    Dim secondaryMatchValue As String ' Secondary value to match if primary fails
-    Dim fieldToUpdate As String ' Value from "Field to Update" column
-    Dim importedSheetName As String ' Name of the current imported sheet being processed
-    Dim clientRow As Long ' Row counter for the CLIENTS sheet
-    Dim matchFound As Boolean ' Boolean to track if a match was found
-    Dim log As String ' Log to summarize changes
-    Dim changesCount As Integer ' Count of rows updated
-
+    Dim inputSheet As Worksheet            ' Worksheet containing input data (Input Rates page)
+    Dim clientSheet As Worksheet           ' Worksheet containing imported sheet names (CLIENTS sheet)
+    Dim importedSheet As Worksheet         ' Current imported sheet being updated
+    Dim inputLastRow As Long, importedLastRow As Long, clientLastRow As Long  ' Last rows
+    Dim inputRow As Long, importedRow As Long  ' Row counters
+    Dim matchValue As String               ' Primary matching value from Input Rates (column B)
+    Dim secondaryMatchValue As String      ' Secondary matching value from Input Rates (column E)
+    Dim fieldToUpdate As String            ' Value from "Field to Update" column (now column I)
+    Dim importedSheetName As String        ' Name of the current imported sheet being processed
+    Dim clientRow As Long                  ' Row counter for the CLIENTS sheet
+    Dim matchFound As Boolean              ' Flag to track if a match was found
+    Dim log As String                      ' Log to summarize changes
+    Dim changesCount As Integer            ' Count of rows updated
+    Dim oldValueC As String                ' To store the existing value in column C
+    
     ' Initialize the log and counters
     log = "Change Summary:" & vbNewLine & String(40, "-") & vbNewLine
     changesCount = 0
-
+    
     ' Define the input and client sheets
     Set inputSheet = ThisWorkbook.Sheets("Input Rates")
     Set clientSheet = ThisWorkbook.Sheets("CLIENTS")
-
-    ' Find the last row in Input Rates sheet
+    
+    ' Find the last row in the Input Rates sheet (using column B)
     inputLastRow = inputSheet.Cells(inputSheet.Rows.Count, "B").End(xlUp).Row
-    ' Find the last row in CLIENTS sheet (column A contains the names of imported sheets)
+    ' Find the last row in the CLIENTS sheet (column A contains the names of imported sheets)
     clientLastRow = clientSheet.Cells(clientSheet.Rows.Count, "A").End(xlUp).Row
-
+    
     ' Loop through each imported sheet listed in the CLIENTS sheet
-    For clientRow = 2 To clientLastRow ' Start at row 2 to skip the header
-        importedSheetName = Trim(clientSheet.Cells(clientRow, "A").Value) ' Get the imported sheet name
-
+    For clientRow = 2 To clientLastRow  ' Start at row 2 to skip the header
+        importedSheetName = Trim(clientSheet.Cells(clientRow, "A").Value)  ' Get the imported sheet name
+        
         ' Check if the sheet exists in the workbook
         On Error Resume Next
         Set importedSheet = ThisWorkbook.Sheets(importedSheetName)
         On Error GoTo 0
-
+        
         If Not importedSheet Is Nothing Then
-            ' Find the last row in the imported sheet
+            ' Find the last row in the imported sheet (using column B)
             importedLastRow = importedSheet.Cells(importedSheet.Rows.Count, "B").End(xlUp).Row
-
+            
             ' Loop through each row in the Input Rates sheet
-            For inputRow = 2 To inputLastRow ' Start at row 2 to skip the header
-                matchValue = Trim(inputSheet.Cells(inputRow, "B").Value) ' Primary key: column B
+            For inputRow = 2 To inputLastRow  ' Start at row 2 to skip the header
+                matchValue = Trim(inputSheet.Cells(inputRow, "B").Value)       ' Primary key: column B
                 secondaryMatchValue = Trim(inputSheet.Cells(inputRow, "E").Value) ' Secondary key: column E
-
+                
                 ' Skip rows where both column B and E are empty
                 If matchValue = "" And secondaryMatchValue = "" Then
                     log = log & "Skipped row " & inputRow & " in Input Rates (B and E are empty)." & vbNewLine
                     GoTo NextInputRow
                 End If
-
-                fieldToUpdate = Trim(inputSheet.Cells(inputRow, "F").Value) ' Get the "Field to Update" value
-                matchFound = False ' Reset matchFound flag for this row
-
-                ' Loop through each row in the imported sheet
-                For importedRow = 2 To importedLastRow ' Start at row 2 to skip the header
+                
+                ' Read the Field to Update from column I
+                fieldToUpdate = Trim(inputSheet.Cells(inputRow, "I").Value)
+                matchFound = False   ' Reset matchFound flag for this row
+                
+                ' Loop through each row in the imported sheet to find a match
+                For importedRow = 2 To importedLastRow  ' Start at row 2 to skip the header
                     ' Check primary key first (column B of imported sheet)
                     If Trim(importedSheet.Cells(importedRow, "B").Value) = matchValue And matchValue <> "" Then
                         matchFound = True
@@ -63,48 +65,52 @@ Sub UpdateImportedPages()
                     ElseIf Trim(importedSheet.Cells(importedRow, "B").Value) = secondaryMatchValue And secondaryMatchValue <> "" Then
                         matchFound = True
                     End If
-
-                    ' If a match is found, update the relevant fields
+                    
+                    ' When a match is found, check the Field to Update value
                     If matchFound Then
-                        Select Case fieldToUpdate
-                            Case "Receive (Float) Rate"
-                                ' Update column T in the imported sheet with column G from Input Rates
-                                importedSheet.Cells(importedRow, "T").Value = inputSheet.Cells(inputRow, "G").Value
+                        Select Case LCase(fieldToUpdate)
+                            Case "yes"
+                                ' Update columns T and N in the imported sheet with values from columns F and G of Input Rates
+                                importedSheet.Cells(importedRow, "T").Value = inputSheet.Cells(inputRow, "F").Value
+                                importedSheet.Cells(importedRow, "N").Value = inputSheet.Cells(inputRow, "G").Value
+                                
+                                ' Prepend the text from column E (Input Rates) to the current value in column C of the imported sheet
+                                oldValueC = importedSheet.Cells(importedRow, "C").Value
+                                importedSheet.Cells(importedRow, "C").Value = inputSheet.Cells(inputRow, "E").Value & "/" & oldValueC
+                                
                                 log = log & "Sheet: " & importedSheetName & " | Row: " & importedRow & _
-                                      " | Updated T with " & inputSheet.Cells(inputRow, "G").Value & vbNewLine
+                                      " | Updated T with " & inputSheet.Cells(inputRow, "F").Value & _
+                                      " | Updated N with " & inputSheet.Cells(inputRow, "G").Value & _
+                                      " | Updated C with " & inputSheet.Cells(inputRow, "E").Value & "/" & oldValueC & vbNewLine
                                 changesCount = changesCount + 1
-
-                            Case "Previous Trade ID, Pay (Fixed) and Receive (Float) Rates"
-                                ' Update columns T and N in the imported sheet with columns G and H from Input Rates
-                                importedSheet.Cells(importedRow, "T").Value = inputSheet.Cells(inputRow, "G").Value
-                                importedSheet.Cells(importedRow, "N").Value = inputSheet.Cells(inputRow, "H").Value
-                                log = log & "Sheet: " & importedSheetName & " | Row: " & importedRow & _
-                                      " | Updated T with " & inputSheet.Cells(inputRow, "G").Value & _
-                                      " | Updated N with " & inputSheet.Cells(inputRow, "H").Value & vbNewLine
-                                changesCount = changesCount + 1
-
+                                
+                            Case "no"
+                                ' Do nothing; simply log that no update was made
+                                log = log & "Sheet: " & importedSheetName & " | Row: " & importedRow & " | Field to update is 'no'. Skipped." & vbNewLine
+                                
                             Case Else
-                                ' If no valid field is defined, do nothing
+                                ' For any other value, log that the Field to Update is invalid
+                                log = log & "Sheet: " & importedSheetName & " | Row: " & importedRow & " | Invalid Field to update: '" & fieldToUpdate & "'. Skipped." & vbNewLine
                         End Select
-
-                        Exit For ' Exit the imported sheet loop since the match has been processed
+                        
+                        Exit For   ' Exit the imported sheet loop since the match has been processed
                     End If
                 Next importedRow
-
+                
 NextInputRow:
             Next inputRow
         Else
             ' Log if a sheet listed in CLIENTS does not exist
             log = log & "Sheet: " & importedSheetName & " does not exist in the workbook." & vbNewLine
         End If
-
+        
         ' Clear the reference to the sheet to ensure it resets for the next iteration
         Set importedSheet = Nothing
     Next clientRow
-
+    
     ' Add summary to the log
     log = log & vbNewLine & "Total Changes Made: " & changesCount & vbNewLine
-
+    
     ' Display the log in a pop-up message
     MsgBox log, vbInformation, "Change Summary"
 End Sub
